@@ -4,6 +4,11 @@ use std::env;
 
 mod parse;
 
+struct MdFileStruct {
+    name: String,
+    modified: std::time::SystemTime,
+}
+
 fn main() {
     // 引数受け取り
     let arg_struct = parse::parser();
@@ -48,22 +53,34 @@ fn main() {
     }
 
     // コピー元ファイル名が空の場合 -> 最新のファイルを採用
-    if arg_struct.source_file.is_empty() {
+    let mut md_files: Vec<MdFileStruct> = Vec::new();
+    let source_file_string = if arg_struct.source_file.is_empty() {
         let mut files = fs::read_dir(&from).expect("cannot read directory");
         while let Some(file) = files.next() {
             let file = file.expect("cannot get file");
             let file_name = file.file_name().into_string().expect("cannot convert file name");
             if file_name.ends_with(".md") {
                 if let Ok(modified) = file.metadata().expect("cannot get metadata").modified() {
-                    println!("{modified:?}");
+                    md_files.push(MdFileStruct {
+                        name: file_name,
+                        modified: modified,
+                    });
                 }
             }
         }
+
+        // 最新のファイルを採用
+        md_files.sort_by(|a, b| b.modified.cmp(&a.modified));
+        md_files[0].name.clone()
     }
+    else {
+        arg_struct.source_file.clone()
+    };
+    let source_file = Path::new(&from).join(&source_file_string);
 
     // コピー先ファイル名
     let destination_file = if arg_struct.destination_file.is_empty() {
-        arg_struct.source_file.clone()
+        source_file_string.clone()
     }
     else {
         arg_struct.destination_file
@@ -74,7 +91,6 @@ fn main() {
     }
 
     // ファイルパスの用意
-    let source_file = Path::new(&from).join(&destination_file);
     let destination_file = Path::new(&to).join(&destination_file);
 
     // ファイルの存在確認
