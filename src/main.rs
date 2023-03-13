@@ -23,19 +23,7 @@ fn main() {
         (String::from("./writing_posts/"), String::from("./_posts/"))
     };
 
-    // コピー先ファイル名
-    let destination_file = if arg_struct.destination_file.is_empty() {
-        arg_struct.source_file.clone()
-    }
-    else {
-        arg_struct.destination_file
-    };
-    if destination_file.is_empty() {
-        println!("source file name is empty.");
-        return;
-    }
-
-    // ファイルパスの用意
+    // ディレクトリの指定
     let from = if arg_struct.from.is_empty() {
         default_from
     }
@@ -49,16 +37,49 @@ fn main() {
         arg_struct.to
     };
 
+    // ディレクトリの存在確認
+    if !Path::new(&from).exists() {
+        println!("directory {} does not exist.", from);
+        return;
+    }
+    if !Path::new(&to).exists() {
+        println!("directory {} does not exist.", to);
+        return;
+    }
+
+    // コピー元ファイル名が空の場合 -> 最新のファイルを採用
+    if arg_struct.source_file.is_empty() {
+        let mut files = fs::read_dir(&from).expect("cannot read directory");
+        while let Some(file) = files.next() {
+            let file = file.expect("cannot get file");
+            let file_name = file.file_name().into_string().expect("cannot convert file name");
+            if file_name.ends_with(".md") {
+                if let Ok(modified) = file.metadata().expect("cannot get metadata").modified() {
+                    println!("{modified:?}");
+                }
+            }
+        }
+    }
+
+    // コピー先ファイル名
+    let destination_file = if arg_struct.destination_file.is_empty() {
+        arg_struct.source_file.clone()
+    }
+    else {
+        arg_struct.destination_file
+    };
+    if destination_file.is_empty() {
+        println!("source file name is empty.");
+        return;
+    }
+
+    // ファイルパスの用意
     let source_file = Path::new(&from).join(&destination_file);
     let destination_file = Path::new(&to).join(&destination_file);
 
     // ファイルの存在確認
     if !source_file.exists() {
         println!("file {} does not exist.", source_file.display());
-        return;
-    }
-    if !Path::new(&to).exists() {
-        println!("directory {} does not exist.", to);
         return;
     }
 
