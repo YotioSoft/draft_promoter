@@ -15,8 +15,12 @@ fn main() {
         (String::from("./"), String::from("../_posts/"))
     }
     // _posts にいる場合
+    else if current_dir.ends_with("_posts") {
+        (String::from("./writing_posts/"), String::from("./"))
+    }
+    // どちらでもない場合
     else {
-        (String::from("../writing_posts"), String::from("./"))
+        (String::from("./writing_posts/"), String::from("./_posts/"))
     };
 
     // コピー先ファイル名
