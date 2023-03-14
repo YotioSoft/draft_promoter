@@ -11,6 +11,19 @@ struct MdFileStruct {
     modified: std::time::SystemTime,
 }
 
+fn get_destination_dir_files(destination_dir: String) -> Vec<String> {
+    let mut list: Vec<String> = Vec::new();
+    let mut files = fs::read_dir(&destination_dir).expect("cannot read directory");
+    while let Some(file) = files.next() {
+        let file = file.expect("cannot get file");
+        let file_name = file.file_name().into_string().expect("cannot convert file name");
+        if file_name.ends_with(".md") {
+            list.push(file_name);
+        }
+    }
+    list
+}
+
 fn main() {
     // 引数受け取り
     let arg_struct = parse::parser();
@@ -101,10 +114,25 @@ fn main() {
                 source_file_string.clone()
             },
         };
-
-        // 日付を付与
-        let date = Local::now().format("%Y-%m-%d").to_string();
-        date + "-" + &md_name
+        
+        // コピー先のファイルリストを取得
+        let destination_dir_files = get_destination_dir_files(to.clone());
+        // コピー先にタイトルと同名のファイルが存在するなら、そのファイル名を採用（置き換え = 日付を合わせる）
+        let mut exist_file = String::new();
+        for file in destination_dir_files {
+            if file.contains(&md_name) {
+                exist_file = file;
+                break;
+            }
+        }
+        if !exist_file.is_empty() {
+            exist_file
+        }
+        else {
+            // 日付を付与
+            let date = Local::now().format("%Y-%m-%d").to_string();
+            date + "-" + &md_name
+        }
     }
     else {
         arg_struct.destination_file
