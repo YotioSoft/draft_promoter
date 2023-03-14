@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 use std::env;
+use regex::Regex;
 
 mod parse;
 
@@ -21,7 +22,7 @@ fn main() {
     }
     // _posts にいる場合
     else if current_dir.ends_with("_posts") {
-        (String::from("./writing_posts/"), String::from("./"))
+        (String::from("../writing_posts/"), String::from("./"))
     }
     // どちらでもない場合
     else {
@@ -80,7 +81,25 @@ fn main() {
 
     // コピー先ファイル名
     let destination_file = if arg_struct.destination_file.is_empty() {
-        source_file_string.clone()
+        // markdown ファイルを開いて、タイトルを抽出する
+        let content = fs::read_to_string(&source_file).expect("cannot read file");
+
+        let re = Regex::new(r#"---\s((.|\s)*?)\s---"#).expect("cannot create regex");
+        match re.find(&content) {
+            Some(m) => {
+                // println!("Header found `{}` at {}-{}", m.as_str(), m.start(), m.end());
+                let title_re = Regex::new(r#"title: (.*)"#).expect("cannot create regex");
+                let title = title_re.captures(m.as_str()).expect("cannot find title")[1].to_string();
+                
+                let ret_name = title.trim_end().replace("\"", "") + ".md";
+                println!("title: {}", ret_name);
+                ret_name
+            },
+            None => {
+                println!("Header not found");
+                source_file_string.clone()
+            },
+        }
     }
     else {
         arg_struct.destination_file
@@ -100,10 +119,9 @@ fn main() {
     }
 
     // ファイルのコピー
+    print!("copy {} -> {} ", source_file.display(), destination_file.display());
     fs::copy(&source_file, &destination_file).expect("cannot copy file");
-
-    // 表示
-    println!("copy {} -> {} done.", source_file.display(), destination_file.display());
+    println!("done.");
 
     // ソースファイルの削除
     if arg_struct.remove_source {
