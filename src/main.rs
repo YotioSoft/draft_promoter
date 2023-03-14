@@ -24,6 +24,43 @@ fn get_destination_dir_files(destination_dir: String) -> Vec<String> {
     list
 }
 
+fn get_md_file_struct_list(dir: &String) -> Vec<MdFileStruct> {
+    let mut md_files: Vec<MdFileStruct> = Vec::new();
+    let mut files = fs::read_dir(&dir).expect("cannot read directory");
+    while let Some(file) = files.next() {
+        let file = file.expect("cannot get file");
+        let file_name = file.file_name().into_string().expect("cannot convert file name");
+        if file_name.ends_with(".md") {
+            if let Ok(modified) = file.metadata().expect("cannot get metadata").modified() {
+                md_files.push(MdFileStruct {
+                    name: file_name,
+                    modified: modified,
+                });
+            }
+        }
+    }
+    md_files
+}
+
+fn get_title(content: &String) -> Option<String> {
+    let re = Regex::new(r#"---\s((.|\s)*?)\s---"#).expect("cannot create regex");
+    match re.find(&content) {
+        Some(m) => {
+            // println!("Header found `{}` at {}-{}", m.as_str(), m.start(), m.end());
+            let title_re = Regex::new(r#"title: (.*)"#).expect("cannot create regex");
+            let title = title_re.captures(m.as_str()).expect("cannot find title")[1].to_string();
+            
+            let ret_name = title.trim_end().replace("\"", "") + ".md";
+            println!("title: {}", ret_name);
+            Some(ret_name)
+        },
+        None => {
+            println!("Header not found");
+            None
+        },
+    }
+}
+
 fn main() {
     // 引数受け取り
     let arg_struct = parse::parser();
@@ -68,22 +105,8 @@ fn main() {
     }
 
     // コピー元ファイル名が空の場合 -> 最新のファイルを採用
-    let mut md_files: Vec<MdFileStruct> = Vec::new();
     let source_file_string = if arg_struct.source_file.is_empty() {
-        let mut files = fs::read_dir(&from).expect("cannot read directory");
-        while let Some(file) = files.next() {
-            let file = file.expect("cannot get file");
-            let file_name = file.file_name().into_string().expect("cannot convert file name");
-            if file_name.ends_with(".md") {
-                if let Ok(modified) = file.metadata().expect("cannot get metadata").modified() {
-                    md_files.push(MdFileStruct {
-                        name: file_name,
-                        modified: modified,
-                    });
-                }
-            }
-        }
-
+        let mut md_files = get_md_file_struct_list(&from);
         // 最新のファイルを採用
         md_files.sort_by(|a, b| b.modified.cmp(&a.modified));
         md_files[0].name.clone()
@@ -98,21 +121,9 @@ fn main() {
         // markdown ファイルを開いて、タイトルを抽出する
         let content = fs::read_to_string(&source_file).expect("cannot read file");
 
-        let re = Regex::new(r#"---\s((.|\s)*?)\s---"#).expect("cannot create regex");
-        let md_name = match re.find(&content) {
-            Some(m) => {
-                // println!("Header found `{}` at {}-{}", m.as_str(), m.start(), m.end());
-                let title_re = Regex::new(r#"title: (.*)"#).expect("cannot create regex");
-                let title = title_re.captures(m.as_str()).expect("cannot find title")[1].to_string();
-                
-                let ret_name = title.trim_end().replace("\"", "") + ".md";
-                println!("title: {}", ret_name);
-                ret_name
-            },
-            None => {
-                println!("Header not found");
-                source_file_string.clone()
-            },
+        let md_name = match get_title(&content) {
+            Some(title) => title,
+            None => source_file_string.clone(),
         };
         
         // コピー先のファイルリストを取得
