@@ -2,6 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::env;
 use regex::Regex;
+use chrono::Local;
 
 mod parse;
 
@@ -85,7 +86,7 @@ fn main() {
         let content = fs::read_to_string(&source_file).expect("cannot read file");
 
         let re = Regex::new(r#"---\s((.|\s)*?)\s---"#).expect("cannot create regex");
-        match re.find(&content) {
+        let md_name = match re.find(&content) {
             Some(m) => {
                 // println!("Header found `{}` at {}-{}", m.as_str(), m.start(), m.end());
                 let title_re = Regex::new(r#"title: (.*)"#).expect("cannot create regex");
@@ -99,7 +100,11 @@ fn main() {
                 println!("Header not found");
                 source_file_string.clone()
             },
-        }
+        };
+
+        // 日付を付与
+        let date = Local::now().format("%Y-%m-%d").to_string();
+        date + "-" + &md_name
     }
     else {
         arg_struct.destination_file
